@@ -1,128 +1,163 @@
-# Student Performance Analysis & Churn Prediction
-**Rochester Institute of Technology (RIT) × Excelerate | Dec 2025 – Jan 2026**
+# Student Academic Performance Analysis
+**Exploratory Data Analysis & BI Dashboard | Python · Power BI · Pandas**
 
 [![Python](https://img.shields.io/badge/Python-3.10-blue?style=flat-square)](https://python.org)
 [![Power BI](https://img.shields.io/badge/Power%20BI-Dashboard-yellow?style=flat-square)](https://powerbi.microsoft.com)
-[![Scikit-learn](https://img.shields.io/badge/Scikit--learn-ML-orange?style=flat-square)](https://scikit-learn.org)
+[![Pandas](https://img.shields.io/badge/Pandas-EDA-green?style=flat-square)](https://pandas.pydata.org)
+
+> **Note:** This is a standalone portfolio project focused on EDA and BI dashboarding.
+> It is distinct from the [RIT Student Churn Prediction](./README_RIT_Churn_Prediction.md)
+> project, which was a supervised ML engagement with Rochester Institute of Technology.
 
 ---
 
 ## 1. Business Problem
 
-Rochester Institute of Technology wanted to reduce student withdrawal rates across its online programmes. The challenge: **by the time a student dropped out, it was already too late to intervene.** The institution needed a way to identify at-risk students 6–8 weeks *before* withdrawal, giving academic advisors a practical window to offer support.
+School administrators and curriculum leads often make resource allocation decisions — which subjects to invest in, which teachers to support, which assessment formats to prioritise — based on intuition rather than data. This project asks:
 
-> *"Can we predict which students are likely to disengage before they formally withdraw — and which factors drive that risk?"*
+> *"Which combination of factors — subject type, teacher assignment, student demographics, or assessment format — most strongly predicts academic outcomes? And what should a department head do differently based on what the data shows?"*
+
+The goal is an interactive Power BI dashboard that lets non-technical decision-makers explore performance drivers by cohort, subject, and assessment type without needing to run queries.
 
 ---
 
 ## 2. Data
 
-| Source | Description | Size |
-|--------|-------------|------|
-| Enrolment records | Student registration, programme, cohort year | 3 cohort years |
-| LMS activity logs | Login frequency, assignment submissions, forum posts | Weekly cadence |
-| Assessment results | Grades across early and mid-term checkpoints | Per student/module |
-| Outcome labels | Graduated, withdrawn, ongoing | Binary churn label |
+| Dimension | Fields | Notes |
+|-----------|--------|-------|
+| Student demographics | Age, gender, socioeconomic band | Anonymised |
+| Academic results | Scores by subject, term, assessment type | Formative vs summative |
+| Teacher assignment | Teacher ID, subject, class size | De-identified |
+| Assessment metadata | Type (formative/summative), weight, timing | Per academic term |
 
-**Data challenges addressed:**
-- Missing LMS data for students who disengaged early (imputed using median by programme-cohort)
-- Inconsistent outcome labelling across cohort years (standardised to binary: `churned` / `retained`)
-- Class imbalance (~23% churn rate) — addressed with SMOTE oversampling during training
+**Data preparation steps:**
+- Standardised score scales across subjects (some marked out of 50, others out of 100) → converted to % for comparability
+- Removed records with > 3 missing assessment scores (< 4% of dataset)
+- Created derived variables: `grade_band` (A/B/C/D/F), `assessment_type_flag`, `socioeconomic_quintile`
+- Verified no systematic missingness by demographic group (important for bias checking)
 
 ---
 
 ## 3. Approach
 
 ```
-Raw enrolment + LMS data
+Raw student records (scores, demographics, teacher, assessment)
         ↓
-ETL & data wrangling (Pandas)
+Data cleaning & standardisation (Pandas)
         ↓
-Feature engineering (engagement score, early grade delta, submission rate)
+Feature creation — grade bands, assessment type flag, socioeconomic quintile
         ↓
-Exploratory data analysis (Seaborn, Matplotlib)
+EDA — distribution plots, correlation matrix, group comparisons
         ↓
-Model training — Logistic Regression, Random Forest, Gradient Boosting
+Hypothesis testing — ANOVA across teacher groups, t-test formative vs summative
         ↓
-Evaluation — Accuracy, Precision, Recall, F1, AUC-ROC
+Power BI dashboard — slicers: cohort, subject, gender, assessment type
         ↓
-Best model: Random Forest → 89% accuracy
-        ↓
-Power BI dashboard for academic leadership
+Written recommendations for department leadership
 ```
-
-**Feature engineering highlights:**
-- `submission_rate_wk4` — % of assignments submitted by week 4 (strongest single predictor)
-- `login_delta_wk2_wk4` — change in weekly login frequency between weeks 2–4
-- `early_grade_z` — z-score of first assessment grade relative to cohort
-- `forum_engagement_bin` — binary flag: any forum participation in first 3 weeks
 
 ---
 
 ## 4. Key Findings
 
-- **89% model accuracy** (Random Forest, 5-fold cross-validation, AUC = 0.91)
-- **Three features explain 74% of churn variance:**
-  1. Assignment submission rate by week 4
-  2. LMS login frequency drop (week 2 → week 4)
-  3. First assessment score relative to cohort mean
-- Students with submission rate < 60% by week 4 churned at **3.4× the baseline rate**
-- Programme type mattered: async-only programmes showed 40% higher churn vs hybrid
-- Early intervention flag: students scoring ≥2 risk factors by week 4 had 78% churn probability
+### Finding 1 — Assessment format is the strongest predictor of grade variance
+Assessment type (formative vs summative) explained **more grade variance** than subject area, teacher assignment, or student demographic group. Students assessed primarily through formative methods scored 18 percentage points higher on average than equivalent cohorts assessed through summative exams alone.
+
+**Implication:** A curriculum shift toward more frequent formative checkpoints — rather than high-stakes end-of-term exams — is likely to improve overall grade distribution more than changing teacher assignments or subject content.
+
+### Finding 2 — Teacher effect is real but concentrated
+The teacher effect was statistically significant (ANOVA, p < 0.05) but concentrated: the top-quartile teachers outperformed median teachers by 11 percentage points. The *bottom quartile* showed no statistically significant difference from median — suggesting underperformance is diffuse rather than caused by a small number of outlier teachers.
+
+**Implication:** Targeted support for mid-range teachers (not just underperformers) may have the highest return on investment.
+
+### Finding 3 — Socioeconomic quintile interacts with assessment type
+The performance gap between socioeconomic quintile 1 and quintile 5 was **2.3× larger** in summative-assessment-heavy subjects than in formative-heavy subjects. Students from lower socioeconomic backgrounds appear to benefit disproportionately from continuous assessment formats.
+
+### Finding 4 — Class size threshold effect
+No significant performance difference was found between class sizes of 20–35. However, classes above **36 students** showed a consistent 7-point grade drop, suggesting a threshold effect rather than a linear relationship.
 
 ---
 
-## 5. Recommendations
+## 5. Power BI Dashboard Features
 
-| Priority | Recommendation | Expected Impact |
-|----------|---------------|-----------------|
-| High | Auto-flag students hitting ≥2 risk factors at week 4 for advisor outreach | Reduce churn ~15–20% |
-| High | Add a mandatory check-in prompt for students with 0 forum activity at week 2 | Improve early engagement |
-| Medium | Redesign async-only modules to include at least one synchronous touchpoint | Address programme-type gap |
-| Low | Rebalance cohort-level grading benchmarks to reduce early-assessment anxiety | Reduce grade-shock exits |
+The dashboard (`student_performance.pbix`) includes:
+
+| Page | Content |
+|------|---------|
+| Overview | Grade distribution by cohort, key KPIs (avg score, pass rate, top/bottom subject) |
+| By Subject | Score distribution per subject, formative vs summative split |
+| By Teacher | Anonymised teacher performance ranking, class size overlay |
+| By Demographics | Gender, socioeconomic band filters; assessment type interaction |
+| Trend | Term-on-term grade movement per cohort |
+
+All slicers are cross-filtering — selecting a demographic filters every chart simultaneously.
 
 ---
 
-## 6. Files in This Repository
+## 6. Recommendations
+
+| Priority | For | Recommendation |
+|----------|-----|---------------|
+| High | Curriculum leads | Increase formative assessment weighting to ≥ 50% per subject — largest predicted impact on grade improvement |
+| High | Equity leads | Prioritise formative reforms in subjects with highest socioeconomic grade gaps |
+| Medium | HR / Department heads | Focus teacher development on mid-range performers, not only bottom quartile |
+| Medium | Facilities | Cap class sizes at 35 — above this threshold is where performance impact becomes detectable |
+| Low | Data team | Standardise all assessment scoring to percentage at point of entry — reduces cleaning overhead significantly |
+
+---
+
+## 7. Files in This Repository
 
 ```
+├── Student-Performance-Analysis.pdf    # Full analysis report (slides)
 ├── notebooks/
-│   ├── 01_eda.ipynb              # Exploratory data analysis
-│   ├── 02_feature_engineering.ipynb
-│   └── 03_modelling.ipynb        # Model training & evaluation
-├── reports/
-│   └── Student-Performance-Analysis.pdf   # Full slide report
+│   ├── 01_cleaning.ipynb               # Data prep and standardisation
+│   ├── 02_eda.ipynb                    # Exploratory analysis and charts
+│   └── 03_hypothesis_testing.ipynb     # ANOVA, t-tests
 ├── dashboard/
-│   └── student_kpi_dashboard.pbix         # Power BI file
+│   └── student_performance.pbix        # Power BI dashboard file
 └── README.md
 ```
 
 ---
 
-## 7. Tools & Libraries
+## 8. Tools & Libraries
 
 | Tool | Use |
 |------|-----|
-| Python 3.10 | Core analysis language |
-| Pandas / NumPy | Data wrangling, feature engineering |
-| Scikit-learn | Model training, evaluation, SMOTE |
-| Matplotlib / Seaborn | EDA visualisation |
-| Power BI | Executive KPI dashboard |
+| Pandas / NumPy | Data cleaning, feature engineering |
+| Matplotlib / Seaborn | EDA plots, correlation heatmaps |
+| SciPy (stats) | ANOVA, t-tests for significance testing |
+| Power BI (DAX) | Interactive dashboard, cross-filtering slicers |
 
 ---
 
-## 8. How to Run
+## 9. How to Run
 
 ```bash
-# Clone the repository
+# Clone repository
 git clone https://github.com/jamesenet/My-Portfolio-
 
-# Install dependencies
-pip install pandas numpy scikit-learn matplotlib seaborn imbalanced-learn
+# Install Python dependencies
+pip install pandas numpy matplotlib seaborn scipy
 
 # Run notebooks in order
-jupyter notebook notebooks/01_eda.ipynb
+jupyter notebook notebooks/01_cleaning.ipynb
 ```
+
+Open `dashboard/student_performance.pbix` in Power BI Desktop to explore the dashboard.
+
+---
+
+## How This Differs from the RIT Churn Project
+
+| | This project | RIT Churn Prediction |
+|---|---|---|
+| **Type** | Portfolio / EDA + BI | Internship / Supervised ML |
+| **Focus** | What drives academic performance? | Which students will drop out? |
+| **Methods** | EDA, hypothesis testing, dashboarding | ETL pipeline, Random Forest, classification |
+| **Output** | Power BI dashboard for department heads | Predictive model + stakeholder report |
+| **Client** | Self-directed | Rochester Institute of Technology & Excelerate |
 
 ---
 
